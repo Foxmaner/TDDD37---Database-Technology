@@ -1,0 +1,2 @@
+We assume that composite attributes does not ned to be labled as derived.
+We also assume that a person can both be an actor and director
