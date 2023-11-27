@@ -1,5 +1,5 @@
 /*
-Lab 2 report <Student_names and liu_id>
+Lab 2 report <Axel Rönnberg axero912 and Eskil Brännerud eskbr129>
 */
 
 /* All non code should be within SQL-comments like this */ 
