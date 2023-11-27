@@ -9,13 +9,13 @@ Lab 2 report <Axel Rönnberg axero912 and Eskil Brännerud eskbr129>
 Drop all user created tables that have been created when solving the lab
 */
 
-DROP TABLE IF EXISTS custom_table CASCADE;
+/*DROP TABLE IF EXISTS custom_table CASCADE;
 
 
 /* Have the source scripts in the file so it is easy to recreate!*/
 
-SOURCE company_schema.sql;
-SOURCE company_data.sql;
+/*SOURCE company_schema.sql;
+SOURCE company_data.sql;*/
 
 /* Question 1 */
 SELECT `jbemployee`.*
@@ -358,8 +358,8 @@ Query OK, 0 rows affected (0,01 sec)
  */
 /* Question 19 */
 
-These queries were writtern in the oposite order and first ran that order to se wich tables had dependecies on each other.
-The order was then reversed to make sure that the tables were deleted in the correct order.
+/*These queries were writtern in the oposite order and first ran that order to se wich tables had dependecies on each other.
+The order was then reversed to make sure that the tables were deleted in the correct order.*/
 
 DELETE `jbsale`
 FROM `jbsale` 
