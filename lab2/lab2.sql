@@ -357,12 +357,28 @@ Query OK, 0 rows affected (0,01 sec)
 
  */
 /* Question 19 */
+
+These queries were writtern in the oposite order and first ran that order to se wich tables had dependecies on each other.
+The order was then reversed to make sure that the tables were deleted in the correct order.
+
 DELETE `jbsale`
 FROM `jbsale` 
 	LEFT JOIN `jbitem` ON `jbsale`.`item` = `jbitem`.`id` 
 	LEFT JOIN `jbsupplier` ON `jbitem`.`supplier` = `jbsupplier`.`id` 
 	LEFT JOIN `jbcity` ON `jbsupplier`.`city` = `jbcity`.`id`
 WHERE `jbcity`.`name` = 'Los Angeles';
+
+DELETE `jbitem`
+ FROM `jbitem` 
+LEFT JOIN `jbsupplier` ON `jbitem`.`supplier` = `jbsupplier`.`id` 
+LEFT JOIN `jbcity` ON `jbsupplier`.`city` = `jbcity`.`id` 
+WHERE `jbcity`.`name` = 'Los Angeles';
+
+DELETE `jbsupplier`
+FROM `jbsupplier` 
+	LEFT JOIN `jbcity` ON `jbsupplier`.`city` = `jbcity`.`id`
+WHERE `jbcity`.`name` = 'Los Angeles';
+
 
 /* Answer
 Query OK, 1 row affected (0,00 sec)
