@@ -20,6 +20,9 @@ DROP PROCEDURE IF EXISTS addDestination
 DROP PROCEDURE IF EXISTS addRoute
 DROP PROCEDURE IF EXISTS addFlight
 
+DROP FUNCTION IF EXISTS calculateFreeSeats
+DROP FUNCTION IF EXISTS calculatePrice
+
 SET FOREIGN_KEY_CHECKS=1;
 
 create table airport
@@ -204,6 +207,54 @@ BEGIN
     END WHILE;
 END;
 delimiter ;
+
+CREATE FUNCTION calculateFreeSeats(flightnumber INT)
+RETURNS INT
+BEGIN
+    DECLARE seatsbooked INT;
+    DECLARE freeseats INT;
+    SET seatsbooked = (SELECT COUNT(*) FROM ticket WHERE ticket.Flight = flightnumber);
+    SET freeseats = 40 - seatsbooked;
+    RETURN freeseats;
+END;
+
+CREATE FUNCTION calculatePrice(flightnumber INT) 
+RETURNS DOUBLE
+BEGIN
+    DECLARE price DOUBLE;
+    set price = (SELECT  route.Price * weekday.DayFactor * ((((40 - calculateFreeSeats(flightnumber)) + 1) / 40.0)) * year.ProfitFactor AS p
+    FROM weekschedule
+       LEFT Join flight ON flight.WeekdaySchedule = weekschedule.WeekScheduleID
+       LEFT JOIN route ON weekschedule.Route = route.RouteID
+       LEFT JOIN weekday ON weekschedule.onDay = weekday.Name
+       LEFT JOIN year ON route.year = year.Year
+    WHERE flight.FlightNumber = flightnumber);
+
+    return price;
+END;
+
+DELIMITER //
+CREATE TRIGGER after_booking_insert
+AFTER INSERT ON booking
+FOR EACH ROW
+BEGIN
+    SET @getPassenger CURSOR FOR;
+    SELECT passenger
+    FROM ispartof
+    WHERE Reservation = NEW.ReservationNumber;
+
+    OPEN @getPassenger
+    FETCH NEXT
+    FROM @getPassenger INTO @reservation, @passenger
+    WHILE @@FETCH_STATUS = 0
+    BEGIN 
+        INSERT INTO ticket CAST(RAND(2)*2147483647 AS INT), @passenger, @reservation, NEW.Reservation.Flight
+        FETCH NEXT
+        FROM @getPassenger INTO @reservation, @passenger
+    END
+END;
+DELIMITER ;
+
 
 
 
