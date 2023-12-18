@@ -199,8 +199,7 @@ BEGIN
     SET @y = LAST_INSERT_ID();
     SET @wnr = 1;
     WHILE @wnr < 53 DO
-    BEGIN
-        INSERT INTO flight (WeekdaySchedule, WeekNr) VALUES (@y.WeekScheduleID, @wnr);
+        INSERT INTO flight (WeekdaySchedule, WeekNr) VALUES (@y, @wnr);
         SET @wnr = @wnr + 1;
     END WHILE;
 END;
