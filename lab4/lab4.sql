@@ -43,7 +43,7 @@ create table creditcard
 create table flight
 (
     WeekdaySchedule int null,
-    FlightNumber    int not null
+    FlightNumber    int auto_increment
         primary key,
     WeekNr          int null
 );
@@ -197,7 +197,12 @@ CREATE PROCEDURE addFlight (in departure_airport_code VARCHAR(3), in arrival_air
 BEGIN
     INSERT INTO weekschedule (onDay, DepartureTime, Route) VALUES (day, departuretime, (SELECT route.RouteID FROM route WHERE DestinationAirport = arrival_airport_code and OriginAirport = departure_airport_code and year = yearin));
     SET @y = LAST_INSERT_ID();
-    INSERT INTO flight (WeekdaySchedule, FlightNumber, WeekNr) VALUES (@y.WeekScheduleID);
+    SET @wnr = 1;
+    WHILE @wnr < 53 DO
+    BEGIN
+        INSERT INTO flight (WeekdaySchedule, WeekNr) VALUES (@y.WeekScheduleID, @wnr);
+        SET @wnr = @wnr + 1;
+    END WHILE;
 END;
 delimiter ;
 
