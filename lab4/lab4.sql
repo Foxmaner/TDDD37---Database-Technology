@@ -180,6 +180,7 @@ CREATE PROCEDURE addYear (in year int, in factor double)
 BEGIN
     INSERT INTO year (Year, ProfitFactor) VALUES (year, factor);
 END;
+//
 delimiter ;
 
 delimiter //
@@ -187,6 +188,7 @@ CREATE PROCEDURE addDay (in year int, in day VARCHAR(30), in factor double)
 BEGIN
     INSERT INTO weekday (Name, DayFactor, IsOnYear) VALUES (day, factor, year);
 END;
+//
 delimiter ;
 
 delimiter //
@@ -194,6 +196,7 @@ CREATE PROCEDURE addDestination (in code VARCHAR(3), in name VARCHAR(30), in cou
 BEGIN
     INSERT INTO airport (IATA, Name, Country) VALUES (code, name, country);
 END;
+//
 delimiter ;
 
 delimiter //
@@ -201,6 +204,7 @@ CREATE PROCEDURE addRoute (in departure_airport_code VARCHAR(3), in arrival_airp
 BEGIN
     INSERT INTO route (OriginAirport, DestinationAirport, Price, year) VALUES (departure_airport_code, arrival_airport_code, routeprice, year);
 END;
+//
 delimiter ;
 
 delimiter //
@@ -214,18 +218,24 @@ BEGIN
         SET @wnr = @wnr + 1;
     END WHILE;
 END;
+//
 delimiter ;
 
+delimiter //
 CREATE FUNCTION calculateFreeSeats(flightnumber INT)
 RETURNS INT
 BEGIN
-    DECLARE seatsbooked INT;
-    DECLARE freeseats INT;
-    SET seatsbooked = (SELECT COUNT(*) FROM ticket WHERE ticket.Flight = flightnumber);
-    SET freeseats = 40 - seatsbooked;
+    DECLARE freeseats INT DEFAULT 0;
+    SELECT 40 - COUNT(*) INTO freeseats FROM ispartof
+        LEFT JOIN reservation ON reservation.ReservationNumber = ispartof.Reservation
+    WHERE reservation.Flight = flightnumber;
     RETURN freeseats;
 END;
+//
+delimiter ;
 
+
+delimiter //
 CREATE FUNCTION calculatePrice(flightnumber INT)
 RETURNS DOUBLE
 BEGIN
@@ -240,6 +250,8 @@ BEGIN
 
     return price;
 END;
+//
+delimiter ;
 
 
 
@@ -267,7 +279,7 @@ DELIMITER ;
 
 
 delimiter //
-CREATE PROCEDURE addReservation (in departure_airport_code VARCHAR(3), in arrival_airport_code VARCHAR(3), in year int, in week INT, in day VARCHAR(30), in departure_time TIME, in number_of_passengers INT, out reservation_number INT)
+CREATE PROCEDURE addReservation (in departure_airport_code VARCHAR(3), in arrival_airport_code VARCHAR(3), in Iyear int, in week INT, in day VARCHAR(30), in departure_time TIME, in number_of_passengers INT, out reservation_number INT)
 BEGIN
     DECLARE flight_number INT DEFAULT NULL;
     DECLARE free_seats INT;
@@ -280,7 +292,7 @@ BEGIN
     WHERE route.OriginAirport = departure_airport_code
     AND route.DestinationAirport = arrival_airport_code
     AND weekschedule.onDay = day
-    AND weekday.IsOnYear = year
+    AND weekday.IsOnYear = Iyear
     AND flight.WeekNr = week
     AND weekschedule.DepartureTime = departure_time;
 
@@ -299,6 +311,7 @@ BEGIN
         SET reservation_number = LAST_INSERT_ID();
     END IF;
 END;
+//
 delimiter ;
 
 delimiter //
@@ -319,6 +332,7 @@ BEGIN
     END IF;
 
 END;
+//
 delimiter ;
 
 delimiter //
@@ -330,7 +344,7 @@ BEGIN
     DECLARE r INT DEFAULT 0;
 
     SELECT COUNT(*) INTO p FROM ispartof WHERE Passenger = Passport_Number AND Reservation = Reservation_Number;
-    IF c = 0 THEN
+    IF p = 0 THEN
         SELECT "The person is not a passenger of the reservation" AS "Message";
     ELSE
         SELECT COUNT(*) INTO c FROM contactpassenger WHERE Passenger = Passport_Number;
@@ -345,6 +359,7 @@ BEGIN
         END IF;
     END IF;
 END;
+//
 delimiter ;
 
 delimiter //
@@ -372,34 +387,45 @@ BEGIN
             END IF;
         END IF;
 END;
+//
 delimiter ;
 
-/*
+
 delimiter //
 CREATE VIEW allFlights AS
-SELECT o.Country as departure_city_name, d.Country AS destination_city_name, weekschedule.DepartureTime AS departure_time, weekschedule.onDay AS departure_day, flight.WeekNr AS departure_week, weekday.IsOnYear AS departure_year, calculateFreeSeats(flight.FlightNumber) AS nr_of_free_seats, calculatePrice(flight.FlightNumber) AS current_price_per_seat
+SELECT o.Name AS departure_city_name, 
+d.Name AS destination_city_name, 
+weekschedule.DepartureTime AS departure_time, 
+weekschedule.onDay AS departure_day, 
+flight.WeekNr AS departure_week, 
+weekday.IsOnYear AS departure_year, 
+calculateFreeSeats(flight.FlightNumber) AS nr_of_free_seats, 
+calculatePrice(flight.FlightNumber) AS current_price_per_seat
 FROM flight
     LEFT JOIN weekschedule on flight.WeekdaySchedule = weekschedule.WeekScheduleID
     LEFT JOIN route ON weekschedule.Route = route.RouteID
     LEFT JOIN weekday ON weekschedule.onDay = weekday.Name
     LEFT JOIN airport o ON route.OriginAirport = o.IATA
-    LEFT JOIN airport d ON route.DestinationAirport = d.IATA
-GROUP BY departure_city_name, destination_city_name, departure_time, departure_day,departure_week, departure_year, nr_of_free_seats, current_price_per_seat;
-delimiter ;
-*/
+    LEFT JOIN airport d ON route.DestinationAirport = d.IATA;
 
+//
+delimiter ;
+
+/*
+delimiter //
 CREATE VIEW allFlights AS
 SELECT f.WeekNr AS "departure_week",
 w.DepartureTime AS "departure_time",
-w.onDay AS "departure_day", 
+w.onDay AS "departure_day",
 ww.IsOnYear AS "departure_year",
 a.Name AS "departure_city_name",
 b.Name AS "destination_city_name",
 calculateFreeSeats(f.FlightNumber) AS "nr_of_free_seats",
 calculatePrice(f.FlightNumber) AS "current_price_per_seat"
 FROM weekschedule w, airport a, airport b, route r, flight f, weekday ww WHERE a.IATA = r.OriginAirport AND b.IATA = r.DestinationAirport AND f.WeekdaySchedule = w.WeekScheduleID AND w.Route = r.RouteID AND w.onDay = ww.Name;
-
-
+//
+delimiter ;
+*/
 
 
 /******************************************************************************************
