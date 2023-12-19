@@ -20,6 +20,9 @@ DROP PROCEDURE IF EXISTS addDestination;
 DROP PROCEDURE IF EXISTS addRoute;
 DROP PROCEDURE IF EXISTS addFlight;
 DROP PROCEDURE IF EXISTS addReservation;
+DROP PROCEDURE IF EXISTS addPassenger;
+DROP PROCEDURE IF EXISTS addContact;
+DROP PROCEDURE IF EXISTS addPayment;
 
 DROP FUNCTION IF EXISTS calculateFreeSeats;
 DROP FUNCTION IF EXISTS calculatePrice;
@@ -264,8 +267,8 @@ DELIMITER ;
 delimiter //
 CREATE PROCEDURE addReservation (in departure_airport_code VARCHAR(3), in arrival_airport_code VARCHAR(3), in year int, in week INT, in day VARCHAR(30), in departure_time TIME, in number_of_passengers INT, out reservation_number INT)
 BEGIN
-    DECLARE @flight_number INT DEFAULT NULL;
-    DECLARE @free_seats INT DEFAULT 0;
+    DECLARE flight_number INT DEFAULT NULL;
+    DECLARE free_seats INT;
 
     SELECT flight.FlightNumber INTO @flight_number FROM flight 
         LEFT JOIN weekschedule ON weekschedule.WeekScheduleID = flight.WeekdaySchedule
@@ -293,6 +296,80 @@ BEGIN
         INSERT INTO reservation (Price, Flight) VALUES (calculatePrice(@flight_number), @flight_number);
         SET reservation_number = LAST_INSERT_ID();
     END IF;
+END;
+delimiter ;
+
+delimiter //
+CREATE PROCEDURE addPassenger (in Reservation_Number INT, in Passport_Number INT, in name VARCHAR(30))
+BEGIN
+
+    DECLARE c INT DEFAULT 0;
+    DECLARE r INT DEFAULT 0;
+    SELECT COUNT(*) INTO c FROM passenger WHERE PassportNumber = Passport_Number;
+    IF c = 0 THEN
+        INSERT INTO passenger (PassportNumber, FirstName) VALUES (Passport_Number, name);
+    END IF;
+    SELECT COUNT(*) INTO r FROM reservation WHERE ReservationNumber = Reservation_Number;
+    IF r = 0 THEN
+        SELECT "The given reservation number does not exist" AS "Message";
+    ELSE
+        INSERT INTO ispartof (Reservation, Passenger) VALUES (Reservation_Number, Passport_Number);
+    END IF;
+
+END;
+delimiter ;
+
+delimiter //
+CREATE PROCEDURE addContact (in Reservation_Number INT, in Passport_Number INT, in email VARCHAR(30), in phonenumber BIGINT)
+BEGIN
+
+    DECLARE p INT DEFAULT 0;
+    DECLARE c INT DEFAULT 0;
+    DECLARE r INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO p FROM ispartof WHERE Passenger = Passport_Number AND Reservation = Reservation_Number;
+    IF c = 0 THEN
+        SELECT "The person is not a passenger of the reservation" AS "Message";
+    ELSE
+        SELECT COUNT(*) INTO c FROM contactpassenger WHERE Passenger = Passport_Number;
+        IF c = 0 THEN
+            INSERT INTO contactpassenger (Passenger, Email, PhoneNumber) VALUES (Passport_Number, Email, phonenumber);
+        END IF;
+        SELECT COUNT(*) INTO r FROM reservation WHERE ReservationNumber = Reservation_Number;
+        IF r = 0 THEN
+            SELECT "The given reservation number does not exist" AS "Message";
+        ELSE
+            UPDATE reservation SET ContactPassenger = Passport_Number WHERE ReservationNumber = Reservation_Number;
+        END IF;
+    END IF;
+END;
+delimiter ;
+
+delimiter //
+CREATE PROCEDURE addPayment (in Reservation_Number INT, in cardholder_name VARCHAR(30), in credit_card_number BIGINT)
+BEGIN
+    
+        DECLARE c INT DEFAULT 0;
+        DECLARE r INT DEFAULT 0;
+        DECLARE cc INT DEFAULT NULL;
+    
+        SELECT COUNT(*) INTO c FROM creditcard WHERE CardNumber = credit_card_number;
+        IF c = 0 THEN
+            INSERT INTO creditcard (CardNumber, FirstName) VALUES (credit_card_number, cardholder_name);
+        END IF;
+
+        SELECT COUNT(*), ContactPassenger INTO r, cc FROM reservation WHERE ReservationNumber = Reservation_Number;
+
+        IF r = 0 THEN
+            SELECT "The given reservation number does not exist" AS "Message";
+        ELSE
+            IF cc IS NULL THEN
+                SELECT "The given reservation number does not have a contact" AS "Message";
+            ELSE
+                UPDATE booking SET PricePaid = (SELECT Price FROM reservation WHERE ReservationNumber = Reservation_Number), CreditCard = credit_card_number WHERE Reservation = Reservation_Number;
+            END IF;
+        END IF;
+
 END;
 delimiter ;
 
