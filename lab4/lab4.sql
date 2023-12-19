@@ -371,20 +371,34 @@ BEGIN
                 UPDATE booking SET PricePaid = (SELECT Price FROM reservation WHERE ReservationNumber = Reservation_Number), CreditCard = credit_card_number WHERE Reservation = Reservation_Number;
             END IF;
         END IF;
-
 END;
 delimiter ;
 
+/*
 delimiter //
 CREATE VIEW allFlights AS
-SELECT route.OriginAirport as departure_city_name, route.DestinationAirport AS destination_city_name, weekschedule.DepartureTime AS departure_time, weekschedule.onDay AS departure_day, flight.WeekNr AS departure_week, weekday.IsOnYear AS departure_year, calculateFreeSeats(flight.FlightNumber) AS nr_of_free_seats, calculatePrice(flight.FlightNumber) AS current_price_per_seat
+SELECT o.Country as departure_city_name, d.Country AS destination_city_name, weekschedule.DepartureTime AS departure_time, weekschedule.onDay AS departure_day, flight.WeekNr AS departure_week, weekday.IsOnYear AS departure_year, calculateFreeSeats(flight.FlightNumber) AS nr_of_free_seats, calculatePrice(flight.FlightNumber) AS current_price_per_seat
 FROM flight
     LEFT JOIN weekschedule on flight.WeekdaySchedule = weekschedule.WeekScheduleID
     LEFT JOIN route ON weekschedule.Route = route.RouteID
     LEFT JOIN weekday ON weekschedule.onDay = weekday.Name
+    LEFT JOIN airport o ON route.OriginAirport = o.IATA
+    LEFT JOIN airport d ON route.DestinationAirport = d.IATA
 GROUP BY departure_city_name, destination_city_name, departure_time, departure_day,departure_week, departure_year, nr_of_free_seats, current_price_per_seat;
-
 delimiter ;
+*/
+
+CREATE VIEW allFlights AS
+SELECT f.WeekNr AS "departure_week",
+w.DepartureTime AS "departure_time",
+w.onDay AS "departure_day", 
+ww.IsOnYear AS "departure_year",
+a.Name AS "departure_city_name",
+b.Name AS "destination_city_name",
+calculateFreeSeats(f.FlightNumber) AS "nr_of_free_seats",
+calculatePrice(f.FlightNumber) AS "current_price_per_seat"
+FROM weekschedule w, airport a, airport b, route r, flight f, weekday ww WHERE a.IATA = r.OriginAirport AND b.IATA = r.DestinationAirport AND f.WeekdaySchedule = w.WeekScheduleID AND w.Route = r.RouteID AND w.onDay = ww.Name;
+
 
 
 
