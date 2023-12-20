@@ -333,15 +333,22 @@ BEGIN
 
     DECLARE c INT DEFAULT 0;
     DECLARE r INT DEFAULT 0;
+    DECLARE isPaid INT DEFAULT 0;
     SELECT COUNT(*) INTO c FROM passenger WHERE PassportNumber = Passport_Number;
     IF c = 0 THEN
         INSERT INTO passenger (PassportNumber, FirstName) VALUES (Passport_Number, name);
     END IF;
+
     SELECT COUNT(*) INTO r FROM reservation WHERE ReservationNumber = Reservation_Number;
     IF r = 0 THEN
         SELECT "The given reservation number does not exist" AS "Message";
     ELSE
-        INSERT INTO ispartof (Reservation, Passenger) VALUES (Reservation_Number, Passport_Number);
+        SELECT COUNT(*) INTO isPaid FROM booking WHERE Reservation = Reservation_Number;
+        IF isPaid != 0 THEN
+            SELECT "The booking has already been payed and no futher passengers can be added" AS "Message";
+        ELSE
+            INSERT INTO ispartof (Reservation, Passenger) VALUES (Reservation_Number, Passport_Number);
+        END IF;
     END IF;
 
 END;
@@ -384,48 +391,47 @@ delimiter ;
 delimiter //
 CREATE PROCEDURE addPayment (in Reservation_Number INT, in cardholder_name VARCHAR(30), in credit_card_number BIGINT)
 BEGIN
+    DECLARE c INT DEFAULT 0;
+    DECLARE r INT DEFAULT 0;
+    DECLARE cc INT DEFAULT 0;
+    DECLARE isPaid INT DEFAULT 0;
+    DECLARE p INT DEFAULT 0;
+    DECLARE pp INT DEFAULT 0;
 
-        DECLARE c INT DEFAULT 0;
-        DECLARE r INT DEFAULT 0;
-        DECLARE cc INT DEFAULT NULL;
-        DECLARE isPaid INT DEFAULT 0;
-        DECLARE p INT DEFAULT 0;
-        DECLARE pp INT DEFAULT 0;
-
-        SELECT COUNT(*) INTO c FROM creditcard WHERE CardNumber = credit_card_number;
-        IF c = 0 THEN
-            INSERT INTO creditcard (CardNumber, FirstName) VALUES (credit_card_number, cardholder_name);
-        END IF;
+    SELECT COUNT(*) INTO c FROM creditcard WHERE CardNumber = credit_card_number;
+    IF c = 0 THEN
+        INSERT INTO creditcard (CardNumber, FirstName) VALUES (credit_card_number, cardholder_name);
+    END IF;
 
 
-        SELECT COUNT(*), ContactPassenger INTO r, cc FROM reservation WHERE ReservationNumber = Reservation_Number;
+    SELECT COUNT(*), COUNT(ContactPassenger) INTO r, cc FROM reservation WHERE ReservationNumber = Reservation_Number;
 
-        IF r = 0 THEN
-            SELECT "The given reservation number does not exist" AS "Message";
+    IF r = 0 THEN
+        SELECT "The given reservation number does not exist" AS "Message";
+    ELSE
+        IF cc = 0 THEN
+            SELECT "The reservation has no contact yet" AS "Message";
         ELSE
-            IF cc IS NULL THEN
-                SELECT "The reservation has no contact yet" AS "Message";
+            SELECT COUNT(*) INTO isPaid FROM booking WHERE Reservation = Reservation_Number;
+            IF isPaid != 0 THEN
+                SELECT "The booking has already been payed and no futher passengers can be added" AS "Message";
             ELSE
-                SELECT COUNT(*) INTO isPaid FROM booking WHERE Reservation = Reservation_Number;
-                IF isPaid > 0 THEN
-                    SELECT "The booking has already been payed and no futher passengers can be added" AS "Message";
+                SELECT COUNT(*), calculateFreeSeats(flight.FlightNumber) 
+                INTO p, pp 
+                FROM ispartof 
+                    LEFT JOIN reservation ON ispartof.Reservation = reservation.ReservationNumber
+                    LEFT JOIN flight ON reservation.Flight = flight.FlightNumber
+                WHERE Reservation = Reservation_Number;
+                IF p <= pp THEN
+                    INSERT INTO booking (Reservation, PricePaid, CreditCard) VALUES (Reservation_Number, (SELECT Price FROM reservation WHERE ReservationNumber = Reservation_Number), credit_card_number);
                 ELSE
-                    SELECT COUNT(*), calculateFreeSeats(flight.FlightNumber) 
-                    INTO p, pp 
-                    FROM ispartof 
-                        LEFT JOIN reservation ON ispartof.Reservation = reservation.ReservationNumber
-                        LEFT JOIN flight ON reservation.Flight = flight.FlightNumber
-                    WHERE Reservation = Reservation_Number;
-                    IF p <= pp THEN
-                        INSERT INTO booking (Reservation, PricePaid, CreditCard) VALUES (Reservation_Number, (SELECT Price FROM reservation WHERE ReservationNumber = Reservation_Number), credit_card_number);
-                    ELSE
-                        DELETE FROM ispartof WHERE Reservation = Reservation_Number;
-                        DELETE FROM reservation WHERE ReservationNumber = Reservation_Number;
-                        SELECT "There are not enough seats available on the flight anymore, deleting reservation" AS "Message";
-                    END IF;
+                    DELETE FROM ispartof WHERE Reservation = Reservation_Number;
+                    DELETE FROM reservation WHERE ReservationNumber = Reservation_Number;
+                    SELECT "There are not enough seats available on the flight anymore, deleting reservation" AS "Message";
                 END IF;
             END IF;
         END IF;
+    END IF;
 END;
 //
 delimiter ;
