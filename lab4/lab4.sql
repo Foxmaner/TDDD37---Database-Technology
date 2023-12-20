@@ -291,37 +291,38 @@ DELIMITER ;
 
 
 delimiter //
-CREATE PROCEDURE addReservation (in departure_airport_code VARCHAR(3), in arrival_airport_code VARCHAR(3), in Iyear int, in week INT, in day VARCHAR(30), in departure_time TIME, in number_of_passengers INT, out reservation_number INT)
+CREATE PROCEDURE addReservation (in departure_airport_code VARCHAR(3), in arrival_airport_code VARCHAR(3), in Iyear int, in Iweek INT, in Iday VARCHAR(30), in departure_time TIME, in number_of_passengers INT, out reservation_number INT)
 BEGIN
     DECLARE flight_number INT DEFAULT NULL;
     DECLARE free_seats INT;
 
-    SELECT flight.FlightNumber INTO @flight_number FROM flight
+    SELECT COUNT(flight.FlightNumber) INTO flight_number FROM flight
         LEFT JOIN weekschedule ON weekschedule.WeekScheduleID = flight.WeekdaySchedule
         LEFT JOIN route ON weekschedule.Route = route.RouteID
         LEFT JOIN weekday ON weekschedule.onDay = weekday.Name
         LEFT JOIN year ON weekday.IsOnYear = year.Year
     WHERE route.OriginAirport = departure_airport_code
     AND route.DestinationAirport = arrival_airport_code
-    AND weekschedule.onDay = day
+    AND weekschedule.onDay = Iday
     AND weekday.IsOnYear = Iyear
-    AND flight.WeekNr = week
+    AND flight.WeekNr = Iweek
     AND weekschedule.DepartureTime = departure_time;
 
-    IF @flight_number IS NULL THEN
+    IF flight_number = 0 THEN
         SELECT "There exist no flight for the given route, date and time" AS "Message";
         SET reservation_number = NULL;
-    END IF;
-
-    SELECT calculateFreeSeats(@flight_number) INTO @free_seats;
-
-    IF @free_seats < number_of_passengers THEN
-        SELECT "There are not enough seats available on the chosen flight" AS "Message";
-        SET reservation_number = NULL;
     ELSE
-        INSERT INTO reservation (Price, Flight) VALUES (calculatePrice(@flight_number), @flight_number);
-        SET reservation_number = LAST_INSERT_ID();
+        SELECT calculateFreeSeats(flight_number) INTO free_seats;
+
+        IF free_seats < number_of_passengers THEN
+            SELECT "There are not enough seats available on the chosen flight" AS "Message";
+            SET reservation_number = NULL;
+        ELSE
+            INSERT INTO reservation (Price, Flight) VALUES (calculatePrice(flight_number), flight_number);
+            SET reservation_number = LAST_INSERT_ID();
+        END IF;
     END IF;
+
 END;
 //
 delimiter ;
@@ -354,20 +355,26 @@ BEGIN
     DECLARE p INT DEFAULT 0;
     DECLARE c INT DEFAULT 0;
     DECLARE r INT DEFAULT 0;
+    DECLARE res INT DEFAULT 0;
 
     SELECT COUNT(*) INTO p FROM ispartof WHERE Passenger = Passport_Number AND Reservation = Reservation_Number;
-    IF p = 0 THEN
-        SELECT "The person is not a passenger of the reservation" AS "Message";
+    SELECT COUNT(*) INTO res FROM reservation WHERE ReservationNumber = Reservation_Number;
+    IF res = 0 THEN
+        SELECT "The given reservation number does not exist" AS "Message";
     ELSE
-        SELECT COUNT(*) INTO c FROM contactpassenger WHERE Passenger = Passport_Number;
-        IF c = 0 THEN
-            INSERT INTO contactpassenger (Passenger, Email, PhoneNumber) VALUES (Passport_Number, Email, phonenumber);
-        END IF;
-        SELECT COUNT(*) INTO r FROM reservation WHERE ReservationNumber = Reservation_Number;
-        IF r = 0 THEN
-            SELECT "The given reservation number does not exist" AS "Message";
+        IF p = 0 THEN
+            SELECT "The person is not a passenger of the reservation" AS "Message";
         ELSE
-            UPDATE reservation SET ContactPassenger = Passport_Number WHERE ReservationNumber = Reservation_Number;
+            SELECT COUNT(*) INTO c FROM contactpassenger WHERE Passenger = Passport_Number;
+            IF c = 0 THEN
+                INSERT INTO contactpassenger (Passenger, Email, PhoneNumber) VALUES (Passport_Number, Email, phonenumber);
+            END IF;
+            SELECT COUNT(*) INTO r FROM reservation WHERE ReservationNumber = Reservation_Number;
+            IF r = 0 THEN
+                SELECT "The given reservation number does not exist" AS "Message";
+            ELSE
+                UPDATE reservation SET ContactPassenger = Passport_Number WHERE ReservationNumber = Reservation_Number;
+            END IF;
         END IF;
     END IF;
 END;
@@ -381,6 +388,7 @@ BEGIN
         DECLARE c INT DEFAULT 0;
         DECLARE r INT DEFAULT 0;
         DECLARE cc INT DEFAULT NULL;
+        DECLARE isPaid INT DEFAULT 0;
         DECLARE p INT DEFAULT 0;
         DECLARE pp INT DEFAULT 0;
 
@@ -396,18 +404,25 @@ BEGIN
             SELECT "The given reservation number does not exist" AS "Message";
         ELSE
             IF cc IS NULL THEN
-                SELECT "The given reservation number does not have a contact" AS "Message";
+                SELECT "The reservation has no contact yet" AS "Message";
             ELSE
-                SELECT COUNT(*), calculateFreeSeats(flight.FlightNumber) 
-                INTO p, pp 
-                FROM ispartof 
-                    LEFT JOIN reservation ON ispartof.Reservation = reservation.ReservationNumber
-                    LEFT JOIN flight ON reservation.Flight = flight.FlightNumber
-                WHERE Reservation = Reservation_Number;
-                IF p <= pp THEN
-                    INSERT INTO booking (Reservation, PricePaid, CreditCard) VALUES (Reservation_Number, (SELECT Price FROM reservation WHERE ReservationNumber = Reservation_Number), credit_card_number);
+                SELECT COUNT(*) INTO isPaid FROM booking WHERE Reservation = Reservation_Number;
+                IF isPaid > 0 THEN
+                    SELECT "The booking has already been payed and no futher passengers can be added" AS "Message";
                 ELSE
-                    SELECT "The given reservation number does not have a contact" AS "Message";
+                    SELECT COUNT(*), calculateFreeSeats(flight.FlightNumber) 
+                    INTO p, pp 
+                    FROM ispartof 
+                        LEFT JOIN reservation ON ispartof.Reservation = reservation.ReservationNumber
+                        LEFT JOIN flight ON reservation.Flight = flight.FlightNumber
+                    WHERE Reservation = Reservation_Number;
+                    IF p <= pp THEN
+                        INSERT INTO booking (Reservation, PricePaid, CreditCard) VALUES (Reservation_Number, (SELECT Price FROM reservation WHERE ReservationNumber = Reservation_Number), credit_card_number);
+                    ELSE
+                        DELETE FROM ispartof WHERE Reservation = Reservation_Number;
+                        DELETE FROM reservation WHERE ReservationNumber = Reservation_Number;
+                        SELECT "There are not enough seats available on the flight anymore, deleting reservation" AS "Message";
+                    END IF;
                 END IF;
             END IF;
         END IF;
