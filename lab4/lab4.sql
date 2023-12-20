@@ -248,7 +248,7 @@ BEGIN
        LEFT JOIN year ON route.year = year.Year
     WHERE flight.FlightNumber = flightnumber);
 
-    return price;
+    return ROUND(price,3);
 END;
 //
 delimiter ;
