@@ -228,11 +228,7 @@ BEGIN
     DECLARE freeseats INT DEFAULT 0;
     SELECT 40 - COUNT(*) INTO freeseats FROM ticket
     WHERE Flight = flightnumber;
-    /*
-    SELECT 40 - COUNT(*) INTO freeseats FROM ispartof
-        LEFT JOIN reservation ON reservation.ReservationNumber = ispartof.Reservation
-    WHERE reservation.Flight = flightnumber;
-    */
+
     RETURN freeseats;
 END;
 //
@@ -275,16 +271,6 @@ BEGIN
         LEFT JOIN reservation ON reservation.ReservationNumber = ispartof.Reservation
     WHERE ispartof.Reservation = NEW.Reservation;
 
-    /*
-    WHILE passengerCount > 0 DO
-        SELECT Passenger INTO currentPassenger FROM ispartof WHERE Reservation = NEW.Reservation AND Passenger != currentPassenger LIMIT 1;
-
-        INSERT INTO ticket(TicketNumber, Passenger, Booking)
-        VALUES (FLOOR(RAND() * 1000000), currentPassenger, NEW.Reservation);
-
-        SET passengerCount = passengerCount - 1;
-    END WHILE;
-    */
 END;
 //
 DELIMITER ;
